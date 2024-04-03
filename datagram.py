@@ -27,7 +27,7 @@ binT = _BinTypes(*_BinTypes._fields)
 def elemBlock(name: str, fmt: str, count=1):
     return(name, (fmt, count))
 
-#  for C types, numpy types, count
+#  for C types, numpy types, bytes
 map_size_to_fmt = dict(
     (
         (binT.c8, ("c", "B", 1)),
