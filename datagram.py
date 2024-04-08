@@ -6,6 +6,9 @@ from collections import namedtuple, defaultdict
 import numpy as np
 import timeit
 
+
+# from . import datagrams_usr
+
 # Tuple with names of low-level elements
 _BinTypes = namedtuple("BinTypes", 
                       [
@@ -46,7 +49,7 @@ map_size_to_fmt = dict(
 )
 
 
-class Datagram(metaclass=abc.ABCMeta):
+class DataBlock(metaclass=abc.ABCMeta):
     """
     Reads fixed-size blocks of structured binary data, according to a specified format
     """
@@ -61,7 +64,7 @@ class Datagram(metaclass=abc.ABCMeta):
         
     @property
     def size(self):
-        return self._sizes
+        return self._struct.size
     
     @property
     def numpy_types(self):
@@ -74,6 +77,7 @@ class Datagram(metaclass=abc.ABCMeta):
         dict_read = defaultdict(list)
         
         for _ in range(count):
+            print(self.size)
             buf = source.read(self.size)
             
             if not buf:
@@ -116,7 +120,7 @@ class Datagram(metaclass=abc.ABCMeta):
         
         return tuple(f_take())
     
-    @staticmethod
+    @classmethod
     def _util_create_struct(cls, sizes) -> struct.Struct:
         fmts = [cls._byte_order_fmt]
         
@@ -159,3 +163,120 @@ class Datagram(metaclass=abc.ABCMeta):
                 name_index += 1
                 
         return results
+
+
+def _bytes_to_str(dict, keys):
+    """
+    For each key, the corresponding dict value is transformed from
+    a list of bytes to a string
+    """
+    for key in keys:
+        byte_list = dict[key]
+        termination = byte_list.index(b"\x00")
+        dict[key] = b"".join(byte_list[:termination]).decode("UTF-8")
+
+
+def _datablock_elemblock(*items):
+    """ Maps the elemBlock function on arguments before passing to Datagram """
+
+    return DataBlock(tuple(elemBlock(*elems) for elems in items))
+
+
+
+class Datagram(metaclass=abc.ABCMeta):
+    """
+    Base class for all record readers.
+
+    Subclasses provide functionality for reading specific records.
+    These are NOT the classes returned to the library user, they are only readers.
+    """
+
+    _datagram_type = None
+    
+    def read(self, source: io.RawIOBase):
+        start_offset = source.tell()
+        
+        try:
+            source.seek(start_offset)
+            # source.seek(2, io.SEEK_CUR)
+            parsed_data = self._read(source, start_offset)
+            source.seek(start_offset)
+            return parsed_data
+        
+        except AttributeError as exc:
+            raise exc
+        
+        except ValueError as exc:
+            raise exc
+        
+    @abc.abstractmethod
+    def _read(self, source: io.RawIOBase, start_offset: int):
+        raise NotImplementedError
+    
+    @classmethod
+    def datagram_type(cls):
+        """return datagram type string"""
+        return cls._datagram_type
+    
+    
+class DatagramCON0(Datagram):
+    """
+    Echo sounder configuration datagram
+    """
+    _record_type = "CON0"
+    _block_dg = _datablock_elemblock(
+        # DatagramHeader
+        (None, binT.i32),
+        ("datagram_type", binT.c8, 4),
+        ("filetime", binT.u64),
+        # ConfigurationHeader
+        ("survey_name", binT.c8, 128),
+        ("transect_name", binT.c8, 128),
+        ("sounder_name", binT.c8, 128),
+        ("motion_x", binT.f32),
+        ("motion_y", binT.f32),
+        ("motion_z", binT.f32),
+        (None, binT.c8, 116),  # future use
+        ("transducer_count", binT.i32),
+        # ConfigurationTransducer
+        ("channel_id", binT.c8, 128),  # Channel identification
+        ("beam_type", binT.i32),  # 0 = Single, 1 = Split
+        ("frequency", binT.f32),  # Hz
+        ("gain", binT.f32),  # dB
+        ("equivalent_beam_angle", binT.f32),  # dB
+        ("beamwidth_alongship", binT.f32),  # degree
+        ("beamwidth_athwardship", binT.f32),  # degree
+        ("angle_sensitivity_along", binT.f32),
+        ("angle_sensitivity_athward", binT.f32),
+        ("angle_offset_along", binT.f32),
+        ("angle_offset_athward", binT.f32),
+        ("pos_x", binT.f32),
+        ("pos_y", binT.f32),
+        ("pos_z", binT.f32),
+        ("dir_x", binT.f32),
+        ("dir_y", binT.f32),
+        ("dir_z", binT.f32),
+        (None, binT.c8, 128),
+    )
+    
+    def _read(self, source: io.RawIOBase, start_offset: int):
+        content = self._block_dg.read(source)
+        return content
+
+class DatagramNMEA(Datagram):
+    """
+    Navigation input text datagram
+    """
+    _record_type = "NMEA"
+
+class DatagramTAG0(Datagram):
+    """
+    Annotation datagram
+    """
+    _record_type = "TAG0"
+
+class DatagramRAW0(Datagram):
+    """
+    Sample datagram
+    """
+    _record_type = "RAW0"
