@@ -57,12 +57,28 @@ def EADatagramReader(filename: str, records_to_read: List[int] = []) -> Generato
    
     
     with path.open(mode="rb", buffering=0) as fhandle:
-        conf = DatagramCON0().read(fhandle)
-        mam = datagrams_usr.Configuration(**conf)
+        conf, td_conf = DatagramCON0().read(fhandle)
+        
+        mam = datagrams_usr.Configuration(**conf, transducers_conf=[  
+            datagrams_usr.TdConfiguration(**i) for i in td_conf])
         mam.repair_strings()
         print(mam)
+        
+        for td in mam.transducers_conf:
+            print(td)
+        # mam.repair_strings()
+        # print(mam)
         # print(btyple_to_string(mam.sounder_name))
-        print(f"time is {mam.filetime_py()}")
+        # print(f"time is {mam.filetime_py()}")
+        # print(fhandle.tell())
+        # print(fhandle.read(DatagramCON0()._block_dg.size))
+        # print(fhandle.read(60))
+        
+        # while True:
+        #     raw_bytes = fhandle.read(DatagramCON0.size)
+            
+        #     record = DatagramCON0().read(raw_bytes)
+        
         # while True:
         #     # Otherwise read the record data and the next data record frame.
         #     # This way we can handle the read linearly

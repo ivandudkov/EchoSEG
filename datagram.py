@@ -237,7 +237,10 @@ class DatagramCON0(Datagram):
         ("motion_y", binT.f32),
         ("motion_z", binT.f32),
         (None, binT.c8, 116),  # future use
-        ("transducer_count", binT.i32),
+        ("transducer_count", binT.i32)
+    )
+        
+    _block_tdconf = _datablock_elemblock(
         # ConfigurationTransducer
         ("channel_id", binT.c8, 128),  # Channel identification
         ("beam_type", binT.i32),  # 0 = Single, 1 = Split
@@ -260,23 +263,84 @@ class DatagramCON0(Datagram):
     )
     
     def _read(self, source: io.RawIOBase, start_offset: int):
-        content = self._block_dg.read(source)
-        return content
+        dg_header = self._block_dg.read(source)
+        td_confs = []
+        
+        for _ in range(dg_header["transducer_count"]):
+            td_confs.append(self._block_tdconf.read(source))
+        
+        return dg_header, td_confs
 
 class DatagramNMEA(Datagram):
     """
     Navigation input text datagram
     """
     _record_type = "NMEA"
+    _block_dg = _datablock_elemblock(
+        # DatagramHeader
+        ("datagram_type", binT.c8, 4),
+    )
+    
+    def _read(self, source: io.RawIOBase, start_offset: int):
+        _start_offset = source.tell()
+        dg = self._block_dg.read(source)
+        
+        
+        
+        content = self._block_dg.read(source)
+        return content
 
 class DatagramTAG0(Datagram):
     """
     Annotation datagram
     """
     _record_type = "TAG0"
+    _block_dg = _datablock_elemblock(
+        # DatagramHeader
+        ("datagram_type", binT.c8, 4),
+    )
+    
+    def _read(self, source: io.RawIOBase, start_offset: int):
+        content = self._block_dg.read(source)
+        return content
 
 class DatagramRAW0(Datagram):
     """
     Sample datagram
     """
     _record_type = "RAW0"
+    _block_dg = _datablock_elemblock(
+        # DatagramHeader
+        ("datagram_type", binT.c8, 4),  # RAW0
+        # ConfigurationHeader
+        ("channel", binT.i16),  # Channel Number
+        ("mode", binT.i16),  # Datatype, 
+        # 0 - power sample data, 1 - power and angle sample data
+        ("transducer_depth", binT.f32),  # [m]
+        ("frequency", binT.f32),  # [Hz]
+        ("transmit_power", binT.f32),  # [W]
+        ("pulse_length", binT.f32),  # [s]
+        ("bandwidth", binT.f32),  # [Hz]
+        ("sample_interval", binT.f32),  # [s]
+        ("sound_velocity", binT.f32),  # [m/s]
+        ("absorption_coef", binT.f32),  # [dB/m]
+        ("heave", binT.f32),  # [m]
+        ("tx_roll", binT.f32),  # [deg]
+        ("tx_pitch", binT.f32),  # [deg]
+        ("temperature", binT.f32),  # [degC]
+        ("spare1", binT.i16),
+        ("spare2", binT.i16),
+        ("rx_roll", binT.f32),  # [deg]
+        ("rx_pitch", binT.f32),  # [deg]
+        ("offset", binT.i32),  # First sample
+        ("count", binT.i32),  # Number of samples
+    )
+    
+    # _block_rd_amp_phs = _datablock_elemblock(
+    #     ("amp", binT.i16),
+    #     ("phs", binT.i16),
+    # )
+    
+    def _read(self, source: io.RawIOBase, start_offset: int):
+        content = self._block_dg.read(source)
+        return content

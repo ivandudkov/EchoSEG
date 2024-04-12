@@ -29,21 +29,8 @@ def ftime_to_dt(ft):
 
 
 @dataclass
-class Configuration:
-    """
-    somesomesome
-    """
+class TdConfiguration:
     
-    datagram_type: int
-    filetime: int
-    survey_name: str
-    transect_name: str
-    sounder_name: str
-    motion_x: float
-    motion_y: float
-    motion_z: float
-    
-    transducer_count: int
     channel_id: int
     beam_type: int
     frequency: int
@@ -62,17 +49,34 @@ class Configuration:
     dir_y: float
     dir_z: float
 
+    def repair_string(self):
+        self.channel_id = btyple_to_string(self.channel_id)
 
+@dataclass
+class Configuration:
+    """
+    somesomesome
+    """
+    
+    datagram_type: int
+    filetime: int
+    survey_name: str
+    transect_name: str
+    sounder_name: str
+    motion_x: float
+    motion_y: float
+    motion_z: float
+    transducer_count: int
+    transducers_conf: list[TdConfiguration]
 
     def repair_strings(self):
         self.datagram_type = btyple_to_string(self.datagram_type)
         self.survey_name = btyple_to_string(self.survey_name)
         self.transect_name = btyple_to_string(self.transect_name)
         self.sounder_name = btyple_to_string(self.sounder_name)
-        self.channel_id = btyple_to_string(self.channel_id)
         
+        for td_conf in self.transducers_conf:
+            td_conf.repair_string()
         
     def filetime_py(self):
         return(ftime_to_dt(self.filetime))
-
-
